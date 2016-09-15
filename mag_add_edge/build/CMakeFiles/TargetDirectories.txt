@@ -1,1 +1,0 @@
-/home/zach/Chang_Shu/mag_add_edge/build/CMakeFiles/mag_nav.dir
