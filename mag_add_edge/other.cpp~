@@ -1,0 +1,67 @@
+#include "g2o/core/sparse_optimizer.h"
+#include "g2o/core/block_solver.h"
+#include "g2o/core/factory.h"
+#include "g2o/core/robust_kernel.h"
+#include "g2o/core/robust_kernel_impl.h"
+#include "g2o/core/optimization_algorithm_levenberg.h"
+#include "g2o/solvers/csparse/linear_solver_csparse.h"
+
+#include "g2o/core/optimization_algorithm_factory.h"
+#include "g2o/core/optimization_algorithm_gauss_newton.h"
+
+//#include <g2o/types/slam3d/vertex_se3.h>
+//#include <g2o/types/slam3d/edge_se3.h>
+#include <g2o/types/slam2d/types_slam2d.h>
+// 使用 宏函数 声明边和顶点类型，注意注释掉了上面两个头文件 
+//G2O_USE_TYPE_GROUP(slam3d);
+//G2O_USE_TYPE_GROUP(slam2d); //2d平面
+
+#include <iostream>
+
+using namespace std;
+using namespace g2o;
+
+#define MAXITERATION 30
+int main()
+{
+  cout<< "Hello g2o"<<endl;
+  // create the optimizer,构建求解器
+  SparseOptimizer optimizer;	
+  // create the linear solver， 构建线性求解器，CSparse
+  BlockSolverX::LinearSolverType* linearSolver = new LinearSolverCSparse<BlockSolverX::PoseMatrixType>();
+  // create the block solver on the top of the linear solver， 构建block slover
+  BlockSolverX* blockSolver = new BlockSolverX(linearSolver);
+  // create the algorithm to carry out the optimization， 构建算法，LM下降法
+  OptimizationAlgorithmLevenberg* Algorithm = new OptimizationAlgorithmLevenberg(blockSolver);  
+  optimizer.setAlgorithm(Algorithm);
+  
+  // 添加数据，load文件
+  if(!optimizer.load("../data/graph_3laps_NS.g2o"))
+  //if(!optimizer.load("../data/intel.g2o"))
+  {
+    cout<<"Error loading graph"<<endl;
+    return -1;
+  }else
+  {
+    cout<<"Loaded "<<optimizer.vertices().size()<<" vertices"<<endl;
+    cout<<"Loaded "<<optimizer.edges().size()<<" edges"<<endl;
+  }
+  
+  optimizer.edge->setRobustKernel( new RobustKernelHuber() );
+  
+  //优化过程中，第一个点固定，不做优化; 也可以不固定。
+  VertexSE2* firstRobotPose = dynamic_cast<VertexSE2*>(optimizer.vertex(0));
+  firstRobotPose->setFixed(true);
+    
+  optimizer.setVerbose(true);
+  optimizer.initializeOptimization();
+  cout<<"Optimizing ..."<<endl;
+  optimizer.optimize(MAXITERATION);
+  cout<<"done."<<endl;
+
+  optimizer.save("../data/sphere_after.g2o");
+  optimizer.clear();
+
+  return 0;  
+}
+
